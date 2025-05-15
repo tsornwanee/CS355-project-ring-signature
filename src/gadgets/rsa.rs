@@ -1,4 +1,4 @@
-use super::biguint::{BigUintTarget, CircuitBuilderBiguint};
+use super::biguint::{self, BigUintTarget, CircuitBuilderBiguint};
 use super::biguint::{CircuitBuilderBiguintFromField, WitnessBigUint};
 use crate::gadgets::serialize::serialize_circuit_data;
 use crate::rsa::{RSADigest, RSAKeypair, RSAPubkey};
@@ -57,8 +57,10 @@ fn pow_65537(
     modulus: &BigUintTarget,
 ) -> BigUintTarget {
     // TODO: Implement the circuit to raise value to the power 65537 mod modulus 
-    unimplemented!("TODO: Implement the circuit to raise value to the power 65537 mod modulus");
-    // HINT: 65537 = 2^16 + 1. Can you use this to exponentiate efficiently?
+    let valueto2to16 = builder.exp_power_of_2(&value, 16);
+    let valueto2to16plus1 = builder.mul_biguint(&valueto2to16, &value);
+    let valueto2to16plus1mod = builder.rem_biguint(&valueto2to16plus1, &modulus);
+    return valueto2to16plus1mod;
 }
 
 /// Circuit which computes a hash target from a message
@@ -115,9 +117,11 @@ pub fn create_ring_circuit(max_num_pks: usize) -> RingSignatureCircuit {
     builder.connect(modulus_is_zero.target, zero);
 
     // TODO: Add additional targets for the signature and public keys
-    unimplemented!("TODO: Add additional targets for the signature and public keys");
+    let sig_target = builder.add_virtual_biguint_target(64);
+    let pk_targets = builder.add_virtual_public_input_arr<biguint>();
 
     // TODO: Construct SNARK circuit for relation R 
+    let rhoe = pow_65537(&builder, &sig_target, ???????public)
     unimplemented!("TODO: Build SNARK circuit for relation R");
 
     // Build the circuit and return it
@@ -155,6 +159,9 @@ pub fn create_ring_proof(
     pw.set_biguint_target(&circuit.sig_pk_target, &pk_val.n)?;
 
     // TODO: Set your additional targets in the partial witness
+    pw.set_biguint_target(&circuit.sig_target, &sig_val.sig)?;
+    pw.set_biguint_target(target, value)
+    padded_hash_target
     unimplemented!("TODO: Set your additional targets in the partial witness");
 
     let proof = circuit.circuit.prove(pw)?;
