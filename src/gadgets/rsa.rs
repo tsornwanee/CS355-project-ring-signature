@@ -57,10 +57,14 @@ fn pow_65537(
     modulus: &BigUintTarget,
 ) -> BigUintTarget {
     // TODO: Implement the circuit to raise value to the power 65537 mod modulus 
-    let valueto2to16 = builder.exp_power_of_2(&value, 16);
-    let valueto2to16plus1 = builder.mul_biguint(&valueto2to16, &value);
-    let valueto2to16plus1mod = builder.rem_biguint(&valueto2to16plus1, &modulus);
-    return valueto2to16plus1mod;
+    let mut valueto2toi = value;
+    for i in 0..16 {
+        valueto2toi = builder.mul_biguint(&valueto2toi, &valueto2toi);
+        valueto2toi = builder.rem_biguint(&valueto2toi, &modulus)
+    }
+    valueto2toi = builder.mul_biguint(&value, &valueto2toi);
+    valueto2toi = builder.rem_biguint(&valueto2toi, &modulus);
+    return valueto2toi;
 }
 
 /// Circuit which computes a hash target from a message
@@ -118,11 +122,26 @@ pub fn create_ring_circuit(max_num_pks: usize) -> RingSignatureCircuit {
 
     // TODO: Add additional targets for the signature and public keys
     let sig_target = builder.add_virtual_biguint_target(64);
-    let pk_targets = builder.add_virtual_public_input_arr<biguint>();
+    let mut pk_targets=Vec::new();
+    for i in 0..max_num_pks {
+        pk_targets.push(builder.add_virtual_public_biguint_target(64));
+    }
 
     // TODO: Construct SNARK circuit for relation R 
-    let rhoe = pow_65537(&builder, &sig_target, ???????public)
-    unimplemented!("TODO: Build SNARK circuit for relation R");
+    // We first check whether sig_pk_target is in R (pk_targets)
+    let mut save_boolean =builder._false();
+    let mut cur_boolean =builder._false();
+    let one = builder.one();
+    for i in 0..max_num_pks {
+        cur_boolean = builder.eq_biguint(&pk_targets[i], &sig_pk_target);
+        save_boolean = builder.or(save_boolean, cur_boolean);
+    }
+    builder.connect(save_boolean.target, one);
+    //Next
+    let rhoe: BigUintTarget = pow_65537(&mut builder, &sig_target, &sig_pk_target);
+    let padded_hash_target_mod = builder.rem_biguint(&padded_hash_target, &sig_pk_target);
+    let rhoe_equal_paddedhash = builder.eq_biguint(&rhoe, &padded_hash_target_mod);
+    builder.connect(rhoe_equal_paddedhash.target, one);
 
     // Build the circuit and return it
     let data = builder.build::<C>();
