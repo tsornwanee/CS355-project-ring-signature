@@ -57,7 +57,7 @@ fn pow_65537(
     modulus: &BigUintTarget,
 ) -> BigUintTarget {
     // TODO: Implement the circuit to raise value to the power 65537 mod modulus 
-    let mut valueto2toi = value;
+    let mut valueto2toi = value.clone();
     for i in 0..16 {
         valueto2toi = builder.mul_biguint(&valueto2toi, &valueto2toi);
         valueto2toi = builder.rem_biguint(&valueto2toi, &modulus)
@@ -99,8 +99,7 @@ pub fn compute_hash(message: &[GoldilocksField]) -> BigUint {
 /// Padding will look like: 0x00 || 0x01 || 0xff...ff || 0x00 || hash
 pub fn compute_padded_hash(message_hash: &BigUint) -> BigUint {
     // TODO: Compute the value of the padded hash for witness generation
-    unimplemented!("TODO: Compute the value of the padded hash for witness generation");
-    // HINT: The size of the message hash is always HASH_BYTES
+    return message_hash.clone();
 }
 
 pub fn create_ring_circuit(max_num_pks: usize) -> RingSignatureCircuit {
@@ -175,13 +174,16 @@ pub fn create_ring_proof(
     let mut pw = PartialWitness::new();
 
     // Set the witness values in pw
-    pw.set_biguint_target(&circuit.sig_pk_target, &pk_val.n)?;
+    pw.set_biguint_target(&circuit.sig_pk_target, &pk_val.n);
 
+
+        padded_hash_target,
     // TODO: Set your additional targets in the partial witness
-    pw.set_biguint_target(&circuit.sig_target, &sig_val.sig)?;
-    pw.set_biguint_target(target, value)
-    padded_hash_target
-    unimplemented!("TODO: Set your additional targets in the partial witness");
+    pw.set_biguint_target(&circuit.sig_target, &sig_val.sig);
+    for (i, public_key) in public_keys.iter().enumerate() {
+        pw.set_biguint_target(&circuit.pk_targets[i], &public_key.n);
+    }
+    pw.set_biguint_target(&padded_hash_target, &padded_hash);
 
     let proof = circuit.circuit.prove(pw)?;
     // check that the proof verifies
