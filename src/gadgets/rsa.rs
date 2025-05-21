@@ -2,7 +2,7 @@ use super::biguint::{self, BigUintTarget, CircuitBuilderBiguint};
 use super::biguint::{CircuitBuilderBiguintFromField, WitnessBigUint};
 use crate::gadgets::serialize::serialize_circuit_data;
 use crate::rsa::{RSADigest, RSAKeypair, RSAPubkey};
-use num::BigUint;
+use num::{BigUint, ToPrimitive};
 use num::FromPrimitive;
 use num_traits::Zero;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -58,7 +58,7 @@ fn pow_65537(
 ) -> BigUintTarget {
     // TODO: Implement the circuit to raise value to the power 65537 mod modulus 
     let mut valueto2toi = value.clone();
-    for i in 0..16 {
+    for _ in 0..16 {
         valueto2toi = builder.mul_biguint(&valueto2toi, &valueto2toi);
         valueto2toi = builder.rem_biguint(&valueto2toi, &modulus)
     }
@@ -99,7 +99,14 @@ pub fn compute_hash(message: &[GoldilocksField]) -> BigUint {
 /// Padding will look like: 0x00 || 0x01 || 0xff...ff || 0x00 || hash
 pub fn compute_padded_hash(message_hash: &BigUint) -> BigUint {
     // TODO: Compute the value of the padded hash for witness generation
-    return message_hash.clone();
+    // N = 253 - HashSize
+    let base = BigUint::from_u32(256).unwrap();
+    let two = BigUint::from_u32(2).unwrap();
+    let upp = two*base.pow(254);
+    let summ: u32 = HASH_BYTES.to_u32().unwrap() + 1;
+    let downn = base.pow(summ);
+    let padd = upp -downn;
+    return message_hash + padd;
 }
 
 pub fn create_ring_circuit(max_num_pks: usize) -> RingSignatureCircuit {
@@ -122,17 +129,16 @@ pub fn create_ring_circuit(max_num_pks: usize) -> RingSignatureCircuit {
     // TODO: Add additional targets for the signature and public keys
     let sig_target = builder.add_virtual_biguint_target(64);
     let mut pk_targets=Vec::new();
-    for i in 0..max_num_pks {
+    for _ in 0..max_num_pks {
         pk_targets.push(builder.add_virtual_public_biguint_target(64));
     }
 
     // TODO: Construct SNARK circuit for relation R 
     // We first check whether sig_pk_target is in R (pk_targets)
-    let mut save_boolean =builder._false();
-    let mut cur_boolean =builder._false();
+    let mut save_boolean = builder._false();
     let one = builder.one();
     for i in 0..max_num_pks {
-        cur_boolean = builder.eq_biguint(&pk_targets[i], &sig_pk_target);
+        let cur_boolean = builder.eq_biguint(&pk_targets[i], &sig_pk_target);
         save_boolean = builder.or(save_boolean, cur_boolean);
     }
     builder.connect(save_boolean.target, one);
@@ -176,14 +182,12 @@ pub fn create_ring_proof(
     // Set the witness values in pw
     pw.set_biguint_target(&circuit.sig_pk_target, &pk_val.n);
 
-
-        padded_hash_target,
     // TODO: Set your additional targets in the partial witness
     pw.set_biguint_target(&circuit.sig_target, &sig_val.sig);
     for (i, public_key) in public_keys.iter().enumerate() {
         pw.set_biguint_target(&circuit.pk_targets[i], &public_key.n);
     }
-    pw.set_biguint_target(&padded_hash_target, &padded_hash);
+    pw.set_biguint_target(&circuit.padded_hash_target, &padded_hash);
 
     let proof = circuit.circuit.prove(pw)?;
     // check that the proof verifies
